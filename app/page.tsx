@@ -2,11 +2,11 @@
 
 /**
  * ============================================================================
- * MÓDULO DE CONTABILIDADE - TELA DE LOGIN
+ * MÓDULO DE CONTABILIDADE - TELA DE LOGIN (AJUSTADA E CENTRALIZADA)
  * Localização no VS Code: app/page.tsx
  * Rota no Navegador: http://localhost:3003/
  * Tecnologias: Next.js (App Router), React, TypeScript
- * Descrição: Formulário de autenticação conectado à rota /cadastro no rodapé.
+ * Descrição: Formulário de autenticação centralizado sem faixa branca lateral.
  * ============================================================================
  */
 
@@ -88,6 +88,17 @@ export default function LoginContabilidadePage() {
 
   return (
     <div style={estilos.containerGeral}>
+      
+      {/* REGRAS CSS PARA REMOVER A MARGEM LATERAL NA TELA DE LOGIN */}
+      <style jsx global>{`
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow-x: hidden !important;
+          background-color: #0f172a !important;
+        }
+      `}</style>
+
       <div style={estilos.cardElevado}>
         
         {/* CABEÇALHO */}
@@ -148,10 +159,10 @@ export default function LoginContabilidadePage() {
 
         </form>
 
-        {/* RODAPÉ COM O LINK CORRETO: /cadastro */}
+        {/* RODAPÉ */}
         <div style={estilos.rodapeCard}>
           <span style={{ color: '#64748b' }}>Ainda não tem acesso contábil? </span>
-          <Link href="./../cadastro" style={estilos.linkCadastro}>
+          <Link href="/cadastro" style={estilos.linkCadastro}>
             Criar Conta Contábil
           </Link>
         </div>
@@ -161,28 +172,34 @@ export default function LoginContabilidadePage() {
   );
 }
 
-// Estilos Inline Responsivos
+// Estilos Responsivos sem Estouros de Largura
 const estilos: { [key: string]: React.CSSProperties } = {
   containerGeral: {
     minHeight: '100dvh',
-    width: '100vw',
+    width: '100%',
     backgroundColor: '#0f172a',
     backgroundImage: 'radial-gradient(circle at 50% 0%, #0f766e 0%, #0f172a 70%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '1rem 0.75rem',
+    padding: '1.5rem 1rem',
     boxSizing: 'border-box',
     fontFamily: 'system-ui, -apple-system, sans-serif',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999, // Garante sobreposição sobre qualquer layout anterior
   },
   cardElevado: {
     backgroundColor: '#ffffff',
-    padding: '2rem 1.25rem',
+    padding: '2rem 1.5rem',
     borderRadius: '20px',
     maxWidth: '420px',
     width: '100%',
     boxSizing: 'border-box',
-    boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.5)',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
   },
   cabecalho: { textAlign: 'center' },
   badgePortal: {

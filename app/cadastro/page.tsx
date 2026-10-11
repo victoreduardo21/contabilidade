@@ -2,183 +2,299 @@
 
 /**
  * ============================================================================
- * MÓDULO DE CONTABILIDADE - TELA DE CAMINHONEIROS (SEM COLUNA PIX)
- * Localização no VS Code: app/caminhoneiros/page.tsx
- * Rota no Navegador: http://localhost:3003/caminhoneiros
+ * MÓDULO DE CONTABILIDADE - TELA DE CADASTRO DE USUÁRIO CONTÁBIL
+ * Localização no VS Code: app/cadastro/page.tsx
+ * Rota no Navegador: http://localhost:3003/cadastro
  * Tecnologias: Next.js (App Router), React, TypeScript
- * Descrição: Exibe a lista completa de motoristas cadastrados sem exibição de PIX.
+ * Descrição: Formulário para criação de novas contas de acesso ao módulo contábil.
  * ============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-interface Caminhoneiro {
-  _id: string;
-  nome: string;
-  cpf: string;
-  dataNascimento: string;
-  telefone: string;
-  cidade?: string;
-  uf?: string;
-}
+export default function CadastroContabilidadePage() {
+  const router = useRouter();
 
-export default function CaminhoneirosContabilidadePage() {
-  const [caminhoneiros, setCaminhoneiros] = useState<Caminhoneiro[]>([]);
-  const [termoBusca, setTermoBusca] = useState('');
-  const [carregando, setCarregando] = useState(true);
+  // Estados dos campos do formulário
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
+  const [cpfCnpj, setCpfCnpj] = useState('');
+  const [senha, setSenha] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
+  
+  const [carregando, setCarregando] = useState(false);
   const [mensagemStatus, setMensagemStatus] = useState('');
 
   // Endereço da API backend Express
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   /**
-   * Consulta os caminhoneiros reais gravados no MongoDB Atlas
+   * Processa o registro do novo usuário no backend
    */
-  const buscarCaminhoneiros = async () => {
+  const handleCadastro = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!nome || !email || !senha) {
+      setMensagemStatus('⚠️ Preencha todos os campos obrigatórios (*).');
+      return;
+    }
+
+    if (senha !== confirmarSenha) {
+      setMensagemStatus('⚠️ As senhas digitadas não coincidem!');
+      return;
+    }
+
     setCarregando(true);
-    setMensagemStatus('');
+    setMensagemStatus('⏳ A criar seu acesso contábil...');
 
     try {
       const baseUrl = apiUrl.replace(/\/$/, '');
-      const endpoint = `${baseUrl}/contabilidade/caminhoneiros`;
+      const endpoint = `${baseUrl}/contabilidade/registro`;
 
-      const resposta = await fetch(endpoint);
+      const resposta = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          nome: nome.trim(),
+          email: email.trim().toLowerCase(),
+          cpfCnpj: cpfCnpj.trim(),
+          senha,
+        }),
+      });
+
       const textoResposta = await resposta.text();
 
       if (textoResposta.trim().startsWith('<')) {
-        throw new Error(`A rota no backend (${endpoint}) devolveu uma página HTML.`);
+        throw new Error('A rota no servidor backend devolveu uma página HTML.');
       }
 
       const resultado = JSON.parse(textoResposta);
 
-      if (resposta.ok && resultado.sucesso) {
-        setCaminhoneiros(resultado.caminhoneiros || []);
-      } else {
-        throw new Error(resultado.mensagem || 'Erro ao carregar os caminhoneiros.');
+      if (!resposta.ok || !resultado.sucesso) {
+        throw new Error(resultado.mensagem || 'Erro ao realizar o cadastro.');
       }
+
+      setMensagemStatus('🎉 Cadastro realizado com sucesso! Redirecionando para o login...');
+
+      setTimeout(() => {
+        router.push('/');
+      }, 1500);
+
     } catch (erro: any) {
-      console.error('❌ Erro na consulta de caminhoneiros:', erro);
-      setMensagemStatus(`❌ ${erro.message || 'Erro de conexão com o servidor.'}`);
+      console.error('❌ Erro no cadastro:', erro);
+      setMensagemStatus(`❌ ${erro.message || 'Erro ao conectar ao servidor.'}`);
     } finally {
       setCarregando(false);
     }
   };
 
-  useEffect(() => {
-    buscarCaminhoneiros();
-  }, []);
-
-  // Filtro de busca local por Nome ou CPF
-  const caminhoneirosFiltrados = caminhoneiros.filter((c) => {
-    const nomeMotorista = (c.nome || '').toLowerCase();
-    const cpfMotorista = (c.cpf || '').toLowerCase();
-    const busca = termoBusca.toLowerCase().trim();
-
-    return nomeMotorista.includes(busca) || cpfMotorista.includes(busca);
-  });
-
   return (
     <div style={estilos.containerGeral}>
       
-      {/* CABEÇALHO CLEAN */}
-      <header style={estilos.headerClean}>
-        <div>
-          <span style={estilos.badgeModulo}>CONTABILIDADE & CADASTROS</span>
-          <h1 style={estilos.tituloHeader}>Base de Caminhoneiros</h1>
+      {/* RESET DE MARGENS GLOBAIS */}
+      <style jsx global>{`
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow-x: hidden !important;
+          background-color: #0f172a !important;
+        }
+      `}</style>
+
+      <div style={estilos.cardElevado}>
+        
+        {/* CABEÇALHO */}
+        <div style={estilos.cabecalho}>
+          <div style={estilos.badgePortal}>MÓDULO CONTÁBIL & FINANCEIRO</div>
+          <h1 style={estilos.tituloModal}>Criar Conta Contábil</h1>
+          <p style={estilos.subtituloModal}>
+            Preencha os dados abaixo para cadastrar seu usuário no sistema
+          </p>
         </div>
 
-        <button onClick={buscarCaminhoneiros} style={estilos.btnAtualizar}>
-          🔄 Atualizar Dados
-        </button>
-      </header>
-
-      {/* CONTEÚDO PRINCIPAL */}
-      <main style={estilos.mainContent}>
-        
+        {/* ALERTA DE STATUS */}
         {mensagemStatus && (
-          <div style={estilos.caixaAlerta}>
+          <div style={{
+            ...estilos.caixaStatus,
+            backgroundColor: mensagemStatus.includes('❌') || mensagemStatus.includes('⚠️') ? '#fef2f2' : mensagemStatus.includes('🎉') ? '#f0fdf4' : '#eff6ff',
+            color: mensagemStatus.includes('❌') || mensagemStatus.includes('⚠️') ? '#991b1b' : mensagemStatus.includes('🎉') ? '#166534' : '#1e40af',
+            borderColor: mensagemStatus.includes('❌') || mensagemStatus.includes('⚠️') ? '#fecaca' : mensagemStatus.includes('🎉') ? '#bbf7d0' : '#bfdbfe',
+          }}>
             {mensagemStatus}
           </div>
         )}
 
-        <section style={estilos.cardBoxBranco}>
+        {/* FORMULÁRIO */}
+        <form onSubmit={handleCadastro} style={{ marginTop: '1.25rem' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>
-              🚚 Motoristas Cadastrados no Banco de Dados ({caminhoneirosFiltrados.length})
-            </h2>
-
+          <div style={{ marginBottom: '0.85rem' }}>
+            <label style={estilos.label}>Nome Completo *</label>
             <input
               type="text"
-              placeholder="🔍 Buscar por nome ou CPF..."
-              value={termoBusca}
-              onChange={(e) => setTermoBusca(e.target.value)}
-              style={estilos.inputPesquisa}
+              required
+              placeholder="Ex: Carlos Eduardo Silva"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              style={estilos.inputSofisticado}
             />
           </div>
 
-          {/* TABELA DE CAMINHONEIROS (SEM A COLUNA DO PIX) */}
-          <div style={{ overflowX: 'auto' }}>
-            <table style={estilos.tabelaCustom}>
-              <thead>
-                <tr>
-                  <th style={estilos.th}>Nome Completo</th>
-                  <th style={estilos.th}>CPF</th>
-                  <th style={estilos.th}>Data Nascimento</th>
-                  <th style={estilos.th}>Telefone / Contacto</th>
-                  <th style={estilos.th}>Cidade / UF</th>
-                </tr>
-              </thead>
-              <tbody>
-                {carregando ? (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: '2.5rem', fontWeight: 'bold', color: '#64748b' }}>
-                      ⏳ A carregar motoristas do MongoDB Atlas...
-                    </td>
-                  </tr>
-                ) : caminhoneirosFiltrados.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: '2.5rem', color: '#64748b' }}>
-                      Nenhum caminhoneiro encontrado na base de dados.
-                    </td>
-                  </tr>
-                ) : (
-                  caminhoneirosFiltrados.map((item, idx) => (
-                    <tr key={item._id || idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={estilos.tdBold}>{item.nome}</td>
-                      <td style={estilos.td}>{item.cpf}</td>
-                      <td style={estilos.td}>{item.dataNascimento}</td>
-                      <td style={estilos.td}>{item.telefone}</td>
-                      <td style={estilos.td}>
-                        {item.cidade ? `${item.cidade} / ${item.uf || ''}` : 'N/D'}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div style={{ marginBottom: '0.85rem' }}>
+            <label style={estilos.label}>E-mail de Acesso *</label>
+            <input
+              type="email"
+              required
+              inputMode="email"
+              placeholder="contador@empresa.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={estilos.inputSofisticado}
+            />
           </div>
 
-        </section>
+          <div style={{ marginBottom: '0.85rem' }}>
+            <label style={estilos.label}>CPF ou CNPJ (Opcional)</label>
+            <input
+              type="text"
+              placeholder="000.000.000-00"
+              value={cpfCnpj}
+              onChange={(e) => setCpfCnpj(e.target.value)}
+              style={estilos.inputSofisticado}
+            />
+          </div>
 
-      </main>
+          <div style={{ marginBottom: '0.85rem' }}>
+            <label style={estilos.label}>Senha *</label>
+            <input
+              type="password"
+              required
+              placeholder="••••••••"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              style={estilos.inputSofisticado}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={estilos.label}>Confirmar Senha *</label>
+            <input
+              type="password"
+              required
+              placeholder="••••••••"
+              value={confirmarSenha}
+              onChange={(e) => setConfirmarSenha(e.target.value)}
+              style={estilos.inputSofisticado}
+            />
+          </div>
+
+          <button type="submit" disabled={carregando} style={estilos.botaoPrincipal}>
+            {carregando ? '⏳ A Cadastrar...' : 'Concluir Cadastro →'}
+          </button>
+
+        </form>
+
+        {/* RODAPÉ LINK PARA VOLTAR AO LOGIN */}
+        <div style={estilos.rodapeCard}>
+          <span style={{ color: '#64748b' }}>Já possui uma conta? </span>
+          <Link href="/" style={estilos.linkLogin}>
+            Fazer Login
+          </Link>
+        </div>
+
+      </div>
     </div>
   );
 }
 
 // Estilos Responsivos
 const estilos: { [key: string]: React.CSSProperties } = {
-  containerGeral: { minHeight: '100dvh', backgroundColor: '#ffffff', color: '#0f172a', fontFamily: 'system-ui, -apple-system, sans-serif' },
-  headerClean: { backgroundColor: '#ffffff', padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' },
-  badgeModulo: { backgroundColor: '#0d9488', color: '#ffffff', fontSize: '0.65rem', fontWeight: '800', padding: '0.25rem 0.65rem', borderRadius: '12px' },
-  tituloHeader: { color: '#0f172a', margin: '0.25rem 0 0 0', fontSize: '1.5rem', fontWeight: '800' },
-  btnAtualizar: { backgroundColor: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem' },
-  mainContent: { padding: '1.5rem 1rem', maxWidth: '1300px', margin: '0 auto' },
-  cardBoxBranco: { backgroundColor: '#ffffff', borderRadius: '16px', padding: '1.25rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)' },
-  inputPesquisa: { padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontWeight: '600', fontSize: '0.9rem', width: '280px', outline: 'none' },
-  tabelaCustom: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' },
-  th: { padding: '0.75rem 0.5rem', backgroundColor: '#f8fafc', color: '#475569', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.7rem', borderBottom: '2px solid #e2e8f0' },
-  td: { padding: '0.85rem 0.5rem', color: '#334155' },
-  tdBold: { padding: '0.85rem 0.5rem', color: '#0f172a', fontWeight: '700' },
-  caixaAlerta: { padding: '0.75rem', borderRadius: '10px', backgroundColor: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', marginBottom: '1rem', fontWeight: '700', textAlign: 'center' },
+  containerGeral: {
+    minHeight: '100dvh',
+    width: '100%',
+    backgroundColor: '#0f172a',
+    backgroundImage: 'radial-gradient(circle at 50% 0%, #0f766e 0%, #0f172a 70%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '1.5rem 1rem',
+    boxSizing: 'border-box',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
+    overflowY: 'auto',
+  },
+  cardElevado: {
+    backgroundColor: '#ffffff',
+    padding: '2rem 1.5rem',
+    borderRadius: '20px',
+    maxWidth: '440px',
+    width: '100%',
+    boxSizing: 'border-box',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+    margin: 'auto',
+  },
+  cabecalho: { textAlign: 'center' },
+  badgePortal: {
+    display: 'inline-block',
+    backgroundColor: '#f0fdf4',
+    color: '#0d9488',
+    fontSize: '0.7rem',
+    fontWeight: '800',
+    padding: '0.35rem 0.85rem',
+    borderRadius: '20px',
+    marginBottom: '0.75rem',
+  },
+  tituloModal: { margin: 0, fontSize: '1.5rem', fontWeight: '800', color: '#0f172a' },
+  subtituloModal: { margin: '0.4rem 0 0 0', fontSize: '0.85rem', color: '#64748b', lineHeight: '1.4' },
+  caixaStatus: { padding: '0.75rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '600', marginTop: '1rem', textAlign: 'center', border: '1px solid' },
+  label: { display: 'block', marginBottom: '0.35rem', fontSize: '0.8rem', fontWeight: '700', color: '#1e293b', textTransform: 'uppercase' },
+  inputSofisticado: {
+    width: '100%',
+    minHeight: '44px',
+    padding: '0.75rem 1rem',
+    borderRadius: '12px',
+    border: '1px solid #cbd5e1',
+    backgroundColor: '#f8fafc',
+    color: '#0f172a',
+    fontSize: '0.95rem',
+    fontWeight: '600',
+    outline: 'none',
+    boxSizing: 'border-box',
+  },
+  botaoPrincipal: {
+    width: '100%',
+    minHeight: '50px',
+    marginTop: '0.5rem',
+    padding: '0.85rem',
+    backgroundColor: '#0d9488',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '12px',
+    fontWeight: '700',
+    fontSize: '1rem',
+    cursor: 'pointer',
+    boxShadow: '0 10px 15px -3px rgba(13, 148, 136, 0.3)',
+  },
+  rodapeCard: {
+    textAlign: 'center',
+    marginTop: '1.25rem',
+    paddingTop: '1rem',
+    borderTop: '1px solid #f1f5f9',
+    fontSize: '0.875rem',
+  },
+  linkLogin: {
+    color: '#0d9488',
+    fontWeight: '700',
+    textDecoration: 'none',
+    marginLeft: '0.35rem',
+  },
 };

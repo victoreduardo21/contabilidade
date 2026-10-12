@@ -32,7 +32,7 @@ interface MotoristaApurado {
 }
 
 export default function DashboardContabilidadePage() {
-  const [competencia, setCompetencia] = useState('08/2026');
+  const [competencia, setCompetencia] = useState('00/0000');
   const [carregando, setCarregando] = useState(false);
   const [mensagemStatus, setMensagemStatus] = useState('');
   const [listaMotoristas, setListaMotoristas] = useState<MotoristaApurado[]>([]);

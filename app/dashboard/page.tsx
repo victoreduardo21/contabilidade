@@ -2,16 +2,16 @@
 
 /**
  * ============================================================================
- * MÓDULO DE CONTABILIDADE - DASHBOARD DE CONSOLIDAÇÃO COM DADOS REAIS
+ * MÓDULO DE CONTABILIDADE - DASHBOARD DE CONSOLIDAÇÃO DE RPA
  * Localização no VS Code: app/dashboard/page.tsx
  * Rota no Navegador: http://localhost:3003/dashboard
  * Tecnologias: Next.js (App Router), React, TypeScript, XLSX
- * Descrição: Consulta os fretes e minutas do banco de dados em tempo real
- *            e exibe a folha de consolidação do RPA da competência.
+ * Descrição: Exibe a folha de consolidação de RPA calculada a partir
+ *            das minutas de frete pagas no mês/ano selecionado.
  * ============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 
 interface MotoristaApurado {
@@ -32,25 +32,59 @@ interface MotoristaApurado {
 }
 
 export default function DashboardContabilidadePage() {
-  const [competencia, setCompetencia] = useState('00/0000');
+  // Inicialização padrão dos seletores de Mês e Ano
+  const [mesSelecionado, setMesSelecionado] = useState<string>('10');
+  const [anoSelecionado, setAnoSelecionado] = useState<string>('2026');
+
   const [carregando, setCarregando] = useState(false);
   const [mensagemStatus, setMensagemStatus] = useState('');
   const [listaMotoristas, setListaMotoristas] = useState<MotoristaApurado[]>([]);
   const [motoristaModal, setMotoristaModal] = useState<MotoristaApurado | null>(null);
 
-  // Endereço da API backend Express
+  // Competência no formato "MM/AAAA"
+  const competencia = `${mesSelecionado}/${anoSelecionado}`;
+
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+  // Opções para o select de mês
+  const opcoesMeses = [
+    { valor: '01', rotulo: '01 - Janeiro' },
+    { valor: '02', rotulo: '02 - Fevereiro' },
+    { valor: '03', rotulo: '03 - Março' },
+    { valor: '04', rotulo: '04 - Abril' },
+    { valor: '05', rotulo: '05 - Maio' },
+    { valor: '06', rotulo: '06 - Junho' },
+    { valor: '07', rotulo: '07 - Julho' },
+    { valor: '08', rotulo: '08 - Agosto' },
+    { valor: '09', rotulo: '09 - Setembro' },
+    { valor: '10', rotulo: '10 - Outubro' },
+    { valor: '11', rotulo: '11 - Novembro' },
+    { valor: '12', rotulo: '12 - Dezembro' },
+  ];
+
+  // Opções para o select de ano
+  const opcoesAnos = ['2024', '2025', '2026', '2027', '2028'];
+
+  // Atualiza para o mês/ano atual do navegador na montagem do componente
+  useEffect(() => {
+    const dataHoje = new Date();
+    const mStr = String(dataHoje.getMonth() + 1).padStart(2, '0');
+    const aStr = String(dataHoje.getFullYear());
+    
+    setMesSelecionado(mStr);
+    setAnoSelecionado(aStr);
+  }, []);
+
   /**
-   * Puxa do backend os dados consolidados das minutas/fretes do mês selecionado
+   * Consulta os lançamentos consolidados no backend
    */
-  const carregarConsolidacaoReal = async () => {
+  const carregarConsolidacaoReal = useCallback(async () => {
     setCarregando(true);
     setMensagemStatus('');
 
     try {
       const baseUrl = apiUrl.replace(/\/$/, '');
-      const endpoint = `${baseUrl}/contabilidade/rpa/mensal?competencia=${competencia}`;
+      const endpoint = `${baseUrl}/contabilidade/rpa/mensal?competencia=${encodeURIComponent(competencia)}`;
 
       const resposta = await fetch(endpoint);
       const textoResposta = await resposta.text();
@@ -72,15 +106,15 @@ export default function DashboardContabilidadePage() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [apiUrl, competencia]);
 
-  // Carrega os dados reais do banco de dados sempre que a competência for alterada
+  // Recarrega os dados quando a competência é alterada
   useEffect(() => {
     carregarConsolidacaoReal();
-  }, [competencia]);
+  }, [carregarConsolidacaoReal]);
 
   /**
-   * Baixa a planilha Excel (.xlsx) com todos os lançamentos reais da competência
+   * Gera e descarrega a planilha em Excel (.xlsx)
    */
   const handleExportarExcel = () => {
     try {
@@ -89,7 +123,7 @@ export default function DashboardContabilidadePage() {
         'Nome do Motorista': m.nome,
         'CPF': m.cpf,
         'Data Nascimento': m.dataNascimento,
-        'Telefone / Contacto': m.telefone,
+        'Telefone / Contato': m.telefone,
         'Nº Viagens': m.quantidadeMinutas,
         'Rendimento Bruto (R$)': m.rendimentoBruto,
         'Base INSS 20% (R$)': m.baseInss,
@@ -107,35 +141,68 @@ export default function DashboardContabilidadePage() {
       XLSX.utils.book_append_sheet(wb, ws, `RPA_${competencia.replace('/', '_')}`);
       XLSX.writeFile(wb, `Relatorio_Contabilidade_RPA_${competencia.replace('/', '_')}.xlsx`);
 
-      setMensagemStatus('🎉 Relatório Excel (.xlsx) transferido com sucesso!');
+      setMensagemStatus('🎉 Relatório Excel (.xlsx) baixado com sucesso!');
       setTimeout(() => setMensagemStatus(''), 4000);
     } catch (erro) {
       setMensagemStatus('❌ Erro ao gerar o ficheiro Excel.');
     }
   };
 
+  const formatarMoeda = (valor: number) => {
+    return (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
   return (
     <div style={estilos.containerGeralBranco}>
       
-      {/* CABEÇALHO CLEAN */}
+      {/* CABEÇALHO */}
       <header style={estilos.headerClean}>
         <div>
           <span style={estilos.badgeModulo}>CONTABILIDADE & FINANCEIRO</span>
           <h1 style={estilos.tituloHeader}>Consolidação Mensal de RPA</h1>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <label style={{ fontSize: '0.85rem', fontWeight: '800', color: '#1e293b' }}>COMPETÊNCIA:</label>
-          <input
-            type="text"
-            value={competencia}
-            onChange={(e) => setCompetencia(e.target.value)}
-            style={estilos.inputCompetenciaClean}
-          />
+        {/* SELEÇÃO DE COMPETÊNCIA */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <label style={{ fontSize: '0.85rem', fontWeight: '800', color: '#1e293b' }}>
+            COMPETÊNCIA:
+          </label>
+
+          <select
+            value={mesSelecionado}
+            onChange={(e) => setMesSelecionado(e.target.value)}
+            style={estilos.selectCompetencia}
+          >
+            {opcoesMeses.map((m) => (
+              <option key={m.valor} value={m.valor}>
+                {m.rotulo}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={anoSelecionado}
+            onChange={(e) => setAnoSelecionado(e.target.value)}
+            style={estilos.selectCompetencia}
+          >
+            {opcoesAnos.map((ano) => (
+              <option key={ano} value={ano}>
+                {ano}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={carregarConsolidacaoReal}
+            disabled={carregando}
+            style={estilos.botaoAtualizarCompetencia}
+          >
+            {carregando ? '⏳' : '🔍 Atualizar'}
+          </button>
         </div>
       </header>
 
-      {/* ÁREA PRINCIPAL */}
+      {/* CONTEÚDO PRINCIPAL */}
       <main style={estilos.mainContent}>
         
         {mensagemStatus && (
@@ -144,7 +211,6 @@ export default function DashboardContabilidadePage() {
           </div>
         )}
 
-        {/* CARTÃO BRANCO DE DEMONSTRATIVO */}
         <section style={estilos.cardBoxBranco}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -157,7 +223,7 @@ export default function DashboardContabilidadePage() {
             </button>
           </div>
 
-          {/* TABELA COMPLETA INTEGRADA AO BANCO */}
+          {/* TABELA DE RESULTADOS */}
           <div style={{ overflowX: 'auto' }}>
             <table style={estilos.tabelaCustom}>
               <thead>
@@ -179,7 +245,7 @@ export default function DashboardContabilidadePage() {
                 {carregando ? (
                   <tr>
                     <td colSpan={11} style={{ textAlign: 'center', padding: '2.5rem', fontWeight: 'bold', color: '#64748b' }}>
-                      ⏳ A carregar lançamentos de fretes do banco de dados...
+                      ⏳ A carregar lançamentos de fretes do banco de dados para {competencia}...
                     </td>
                   </tr>
                 ) : listaMotoristas.length === 0 ? (
@@ -196,14 +262,14 @@ export default function DashboardContabilidadePage() {
                       <td style={estilos.td}>{m.dataNascimento}</td>
                       <td style={estilos.td}>{m.telefone}</td>
                       <td style={{ ...estilos.td, color: '#0f172a', fontWeight: '800' }}>
-                        R$ {m.rendimentoBruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {formatarMoeda(m.rendimentoBruto)}
                       </td>
-                      <td style={{ ...estilos.td, color: '#991b1b' }}>R$ {m.inssSest.toFixed(2)}</td>
-                      <td style={{ ...estilos.td, color: '#991b1b' }}>R$ {m.inssSenat.toFixed(2)}</td>
-                      <td style={{ ...estilos.td, color: '#991b1b' }}>R$ {m.valorInss.toFixed(2)}</td>
-                      <td style={{ ...estilos.td, color: '#991b1b' }}>R$ {m.valorIrrf.toFixed(2)}</td>
+                      <td style={{ ...estilos.td, color: '#991b1b' }}>{formatarMoeda(m.inssSest)}</td>
+                      <td style={{ ...estilos.td, color: '#991b1b' }}>{formatarMoeda(m.inssSenat)}</td>
+                      <td style={{ ...estilos.td, color: '#991b1b' }}>{formatarMoeda(m.valorInss)}</td>
+                      <td style={{ ...estilos.td, color: '#991b1b' }}>{formatarMoeda(m.valorIrrf)}</td>
                       <td style={estilos.tdLiquidoHighlight}>
-                        R$ {m.valorLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {formatarMoeda(m.valorLiquido)}
                       </td>
                       <td style={estilos.td}>
                         <button onClick={() => setMotoristaModal(m)} style={estilos.botaoAcaoTable}>
@@ -218,7 +284,7 @@ export default function DashboardContabilidadePage() {
           </div>
         </section>
 
-        {/* MODAL DO FORMULÁRIO DO GOVERNO */}
+        {/* MODAL DO ESPELHO DE RPA */}
         {motoristaModal && (
           <div style={estilos.overlayModal}>
             <div style={estilos.conteudoModalGoverno}>
@@ -247,37 +313,37 @@ export default function DashboardContabilidadePage() {
 
                 <div style={estilos.gridGov2}>
                   
-                  {/* RETENÇÕES DE INSS */}
+                  {/* DETALHAMENTO INSS */}
                   <div style={estilos.boxSecaoGov}>
                     <h4 style={estilos.tituloSecaoGov}>RETENÇÕES DE INSS</h4>
                     <div style={estilos.linhaCampoGov}>
                       <label style={estilos.lblGov}>Rendimento Bruto:</label>
-                      <input type="text" disabled value={`R$ ${motoristaModal.rendimentoBruto.toFixed(2)}`} style={{ ...estilos.inpGov, fontWeight: '800' }} />
+                      <input type="text" disabled value={formatarMoeda(motoristaModal.rendimentoBruto)} style={{ ...estilos.inpGov, fontWeight: '800' }} />
                     </div>
                     <div style={estilos.linhaCampoGov}>
                       <label style={estilos.lblGov}>Base INSS (20% Bruto):</label>
-                      <input type="text" disabled value={`R$ ${motoristaModal.baseInss.toFixed(2)}`} style={estilos.inpGov} />
+                      <input type="text" disabled value={formatarMoeda(motoristaModal.baseInss)} style={estilos.inpGov} />
                     </div>
                     <div style={estilos.linhaCampoGov}>
                       <label style={estilos.lblGov}>INSS SEST (1.5%):</label>
-                      <input type="text" disabled value={`R$ ${motoristaModal.inssSest.toFixed(2)}`} style={estilos.inpGov} />
+                      <input type="text" disabled value={formatarMoeda(motoristaModal.inssSest)} style={estilos.inpGov} />
                     </div>
                     <div style={estilos.linhaCampoGov}>
                       <label style={estilos.lblGov}>INSS SENAT (1.0%):</label>
-                      <input type="text" disabled value={`R$ ${motoristaModal.inssSenat.toFixed(2)}`} style={estilos.inpGov} />
+                      <input type="text" disabled value={formatarMoeda(motoristaModal.inssSenat)} style={estilos.inpGov} />
                     </div>
                     <div style={estilos.linhaCampoGov}>
                       <label style={estilos.lblGov}>Valor INSS Autônomo (11%):</label>
-                      <input type="text" disabled value={`R$ ${motoristaModal.valorInss.toFixed(2)}`} style={{ ...estilos.inpGov, color: '#991b1b' }} />
+                      <input type="text" disabled value={formatarMoeda(motoristaModal.valorInss)} style={{ ...estilos.inpGov, color: '#991b1b' }} />
                     </div>
                   </div>
 
-                  {/* IRRF & LÍQUIDO */}
+                  {/* DETALHAMENTO IRRF */}
                   <div style={estilos.boxSecaoGov}>
                     <h4 style={estilos.tituloSecaoGov}>IRRF & VALOR LÍQUIDO</h4>
                     <div style={estilos.linhaCampoGov}>
                       <label style={estilos.lblGov}>Base IRRF (10% Bruto):</label>
-                      <input type="text" disabled value={`R$ ${motoristaModal.baseIrrf.toFixed(2)}`} style={estilos.inpGov} />
+                      <input type="text" disabled value={formatarMoeda(motoristaModal.baseIrrf)} style={estilos.inpGov} />
                     </div>
                     <div style={estilos.linhaCampoGov}>
                       <label style={estilos.lblGov}>Nº Dependentes:</label>
@@ -285,11 +351,11 @@ export default function DashboardContabilidadePage() {
                     </div>
                     <div style={estilos.linhaCampoGov}>
                       <label style={estilos.lblGov}>Valor IRRF Progressivo:</label>
-                      <input type="text" disabled value={`R$ ${motoristaModal.valorIrrf.toFixed(2)}`} style={{ ...estilos.inpGov, color: '#991b1b' }} />
+                      <input type="text" disabled value={formatarMoeda(motoristaModal.valorIrrf)} style={{ ...estilos.inpGov, color: '#991b1b' }} />
                     </div>
                     <div style={{ ...estilos.linhaCampoGov, marginTop: '1rem', backgroundColor: '#f0fdf4', padding: '0.5rem', borderRadius: '8px' }}>
                       <label style={{ ...estilos.lblGov, color: '#166534', fontWeight: '800' }}>VALOR LÍQUIDO FINAL:</label>
-                      <input type="text" disabled value={`R$ ${motoristaModal.valorLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} style={{ ...estilos.inpGov, color: '#166534', fontWeight: '800', fontSize: '1rem' }} />
+                      <input type="text" disabled value={formatarMoeda(motoristaModal.valorLiquido)} style={{ ...estilos.inpGov, color: '#166534', fontWeight: '800', fontSize: '1rem' }} />
                     </div>
                   </div>
 
@@ -315,13 +381,13 @@ export default function DashboardContabilidadePage() {
   );
 }
 
-// Estilos Responsivos
 const estilos: { [key: string]: React.CSSProperties } = {
   containerGeralBranco: { minHeight: '100dvh', backgroundColor: '#ffffff', color: '#0f172a', fontFamily: 'system-ui, -apple-system, sans-serif' },
   headerClean: { backgroundColor: '#ffffff', padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' },
   badgeModulo: { backgroundColor: '#0d9488', color: '#ffffff', fontSize: '0.65rem', fontWeight: '800', padding: '0.25rem 0.65rem', borderRadius: '12px' },
   tituloHeader: { color: '#0f172a', margin: '0.25rem 0 0 0', fontSize: '1.5rem', fontWeight: '800' },
-  inputCompetenciaClean: { padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontWeight: '800', width: '90px', textAlign: 'center' },
+  selectCompetencia: { padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#0f172a', fontWeight: '800', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' },
+  botaoAtualizarCompetencia: { padding: '0.5rem 0.85rem', borderRadius: '8px', border: 'none', backgroundColor: '#0d9488', color: '#ffffff', fontWeight: '800', fontSize: '0.85rem', cursor: 'pointer' },
   mainContent: { padding: '1.5rem 1rem', maxWidth: '1300px', margin: '0 auto' },
   cardBoxBranco: { backgroundColor: '#ffffff', borderRadius: '16px', padding: '1.25rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)' },
   tabelaCustom: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' },
